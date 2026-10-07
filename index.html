@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Race naar de Beker</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1b2a1e;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.95) 0 4px, transparent 4px 85px),
+      linear-gradient(180deg, #b3401f 0%, #8c2f16 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  body.pseudo-fullscreen .app { max-width: 100%; }
+  body.pseudo-fullscreen .board { max-width: 760px; }
+  .app {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 20px 12px 40px;
+  }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; letter-spacing: .5px; }
+  h3 { margin: 0 0 10px; font-size: .95rem; text-transform: uppercase; letter-spacing: .5px; color: #40916c; }
+  .sub { margin: 0 0 18px; color: #52616b; font-size: .9rem; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .card {
+    background: #ffffff;
+    border: 1px solid #d8e2dc;
+    border-top: 5px solid #ffd60a;
+    border-radius: 14px;
+    padding: 24px 26px;
+    max-width: 480px;
+    margin: 30px auto;
+    box-shadow: 0 14px 34px rgba(0,0,0,.4);
+  }
+
+  .field-label {
+    display: block;
+    font-weight: 600;
+    font-size: .82rem;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #40916c;
+    margin: 18px 0 8px;
+  }
+
+  .counter { display: flex; align-items: center; gap: 14px; }
+  .counter-btn {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: #2d6a4f;
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .counter-btn:disabled { background: #a8bfa9; cursor: not-allowed; }
+  #teamCountDisplay { font-size: 1.2rem; font-weight: 700; min-width: 20px; text-align: center; }
+
+  .name-grid { display: flex; flex-direction: column; gap: 8px; }
+  .name-grid input {
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid #cdd7d0;
+    font-size: .92rem;
+    outline: none;
+    width: 100%;
+  }
+  .name-grid input:focus { border-color: #2d6a4f; }
+
+  .primary-btn {
+    margin-top: 22px;
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: #2d6a4f;
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    letter-spacing: .3px;
+  }
+  .primary-btn.small { margin-top: 0; width: auto; padding: 10px 16px; }
+  .primary-btn:hover { background: #1b4332; }
+
+  .ghost-btn {
+    border: 1px solid #cdd7d0;
+    background: white;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: .85rem;
+    color: #40916c;
+    font-weight: 600;
+    box-shadow: 0 3px 8px rgba(0,0,0,.3);
+  }
+
+  .game-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .game-header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .scoreboard-marquee {
+    display: inline-flex; align-items: center;
+    background: #0d1410;
+    border: 2px solid #2d6a4f;
+    border-radius: 10px;
+    padding: 8px 18px;
+    box-shadow: 0 0 20px rgba(255,204,51,.18), inset 0 0 12px rgba(0,0,0,.7);
+  }
+  .scoreboard-marquee h1 {
+    margin: 0;
+    color: #ffd60a;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-size: 1.1rem;
+    text-shadow: 0 0 8px rgba(255,214,10,.6);
+  }
+
+  .game-layout { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+
+  .board-wrapper { flex: 1 1 480px; min-width: 300px; }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    grid-template-rows: repeat(10, 1fr);
+    gap: 3px;
+    width: 100%;
+    max-width: 600px;
+    aspect-ratio: 1 / 1;
+    margin: 0 auto;
+    background: #1b4332;
+    padding: 6px;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(0,0,0,.15);
+  }
+
+  .cell {
+    position: relative;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: clamp(7px, 1.6vw, 11px);
+  }
+  .cell .num { position: absolute; top: 2px; left: 3px; font-size: clamp(6px, 1.3vw, 9px); opacity: .55; font-weight: 700; }
+  .cell .deco { position: absolute; font-size: clamp(10px, 3vw, 20px); opacity: .18; }
+  .cell .icon { font-size: clamp(10px, 2.6vw, 16px); }
+  .cell.normal { background: #f1faee; }
+  .cell.normal.alt { background: #e2ede1; }
+  .cell.start { background: #ffd60a; }
+  .cell.finish { background: linear-gradient(135deg, #ffd60a, #f4a261); }
+  .cell.bonus { background: #95d5b2; }
+  .cell.terugval { background: #f4978e; }
+  .cell.opdracht { background: #90e0ef; }
+  .cell.penalty { background: #c8b6ff; }
+  .cell.sprint { background: #fca311; }
+  .cell.wissel { background: #ffb3c6; }
+  .cell.basketbal { background: #4ecdc4; }
+
+  .tokens {
+    position: absolute;
+    bottom: 1px; left: 1px; right: 1px;
+    display: flex; flex-wrap: wrap; gap: 1px;
+    justify-content: center;
+    z-index: 2;
+  }
+  .token {
+    width: clamp(18px, 5vw, 32px);
+    height: clamp(18px, 5vw, 32px);
+    border-radius: 50%;
+    border: 2px solid white;
+    display: flex; align-items: center; justify-content: center;
+    color: white;
+    font-weight: 800;
+    font-size: clamp(13px, 3.6vw, 22px);
+    box-shadow: 0 2px 5px rgba(0,0,0,.55), inset 0 -2px 4px rgba(0,0,0,.25);
+    position: relative;
+    animation: idleBob 1.8s ease-in-out infinite;
+    animation-delay: var(--bob-delay, 0s);
+  }
+  @keyframes idleBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+  .token.pop { animation: pop .35s ease; }
+  @keyframes pop { 0% { transform: scale(1.8); } 100% { transform: scale(1); } }
+  .token.active-token { animation: activePulse 1.2s ease-in-out infinite; z-index: 3; }
+  @keyframes activePulse {
+    0%, 100% { box-shadow: 0 0 0 2px white, 0 0 9px 4px rgba(255,214,10,.9); }
+    50% { box-shadow: 0 0 0 2px white, 0 0 13px 6px rgba(255,214,10,.9); }
+  }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 10px; font-size: .78rem; color: #fdf0e4; }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .dot { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+  .dot.normal { background: #f1faee; border: 1px solid #8a9a86; }
+  .dot.bonus { background: #95d5b2; }
+  .dot.terugval { background: #f4978e; }
+  .dot.opdracht { background: #90e0ef; }
+  .dot.penalty { background: #c8b6ff; }
+  .dot.sprint { background: #fca311; }
+  .dot.wissel { background: #ffb3c6; }
+  .dot.basketbal { background: #4ecdc4; }
+  .duel-note { text-align: center; font-size: .75rem; color: #fdf0e4; margin-top: 6px; }
+
+  .controls { flex: 1 1 280px; min-width: 260px; display: flex; flex-direction: column; gap: 14px; }
+  .panel { background: white; border: 1px solid #d8e2dc; border-radius: 12px; padding: 14px 16px; box-shadow: 0 6px 20px rgba(0,0,0,.3); }
+
+  .team-list { display: flex; flex-direction: column; gap: 6px; }
+  .team-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 9px; border-radius: 8px;
+    border: 1.5px solid transparent;
+    cursor: pointer;
+    background: #f8f9f6;
+  }
+  .team-row:hover { background: #eef2ec; }
+  .team-row.active { border-color: #2d6a4f; background: #e6f2ea; }
+  .team-row.finished { opacity: .65; }
+  .team-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; border: 2px solid white; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
+  .team-name { flex: 1; font-weight: 600; font-size: .88rem; }
+  .team-pos { font-size: .8rem; color: #52616b; font-variant-numeric: tabular-nums; }
+
+  /* --- Scoreboard panels (Teams / Ranglijst) --- */
+  .scoreboard-panel {
+    background: #0d1410;
+    border: 2px solid #2d3f2a;
+    box-shadow: 0 10px 26px rgba(0,0,0,.5), inset 0 0 14px rgba(0,0,0,.5);
+  }
+  .scoreboard-panel h3 { color: #ffd60a; text-shadow: 0 0 6px rgba(255,214,10,.4); }
+  .scoreboard-panel .team-row { background: #141c12; }
+  .scoreboard-panel .team-row:hover { background: #1c2718; }
+  .scoreboard-panel .team-row.active { background: #1f3320; border-color: #52b788; }
+  .scoreboard-panel .team-row.finished { opacity: .5; }
+  .scoreboard-panel .team-name { color: #f1e9c9; }
+  .scoreboard-panel .team-dot { box-shadow: 0 0 7px 2px var(--glow, rgba(255,255,255,.4)); border-color: #0d1410; }
+
+  .scoreboard-number-wrap { display: flex; align-items: center; gap: 4px; }
+  .scoreboard-number { display: flex; gap: 3px; background: #05080a; padding: 3px 5px; border-radius: 5px; box-shadow: inset 0 2px 6px rgba(0,0,0,.7); }
+  .scoreboard-suffix { color: #7f9078; font-size: .62rem; font-weight: 700; letter-spacing: .5px; }
+
+  .timer-display { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 10px; }
+  .timer-colon { color: #ffd60a; font-weight: 900; font-size: 1.3rem; }
+  .timer-controls { display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  .timer-controls input {
+    width: 56px; padding: 8px 6px; border-radius: 8px; border: 1px solid #cdd7d0;
+    font-size: .85rem; text-align: center;
+  }
+  #timerPanel.warning .bulb.lit {
+    background: radial-gradient(circle at 35% 30%, #ffe0e0, #ff5555 55%, #aa1111 100%);
+    box-shadow: 0 0 3px 1px rgba(255,85,85,.9);
+  }
+  #timerPanel.done .timer-display { animation: timerFlash 1s steps(1) infinite; }
+  @keyframes timerFlash { 50% { opacity: .25; } }
+  .digit { display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(7, 1fr); gap: 1px; width: clamp(10px, 2.4vw, 15px); height: clamp(14px, 3.4vw, 21px); }
+  .bulb { border-radius: 50%; background: #241d0a; }
+  .bulb.lit { background: radial-gradient(circle at 35% 30%, #fff6d0, #ffcc33 55%, #cc8800 100%); box-shadow: 0 0 3px 1px rgba(255,204,51,.9); }
+
+  .move-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .dice-btn {
+    background: #f1faee; border: 1px solid #cdd7d0;
+    width: 92px; height: 92px; border-radius: 20px;
+    font-size: 3.4rem; cursor: pointer;
+    box-shadow: 0 3px 8px rgba(0,0,0,.15);
+  }
+  .dice-btn.rolling { animation: spin .4s ease; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  #moveInput { width: 60px; padding: 10px 8px; border-radius: 8px; border: 1px solid #cdd7d0; font-size: .95rem; text-align: center; }
+  .key-hint { font-size: .72rem; color: #7f9078; margin: 8px 0 0; text-align: center; }
+  .key-hint kbd { background: #f1faee; border: 1px solid #cdd7d0; border-radius: 4px; padding: 1px 7px; font-family: monospace; font-size: .72rem; color: #1b2a1e; }
+
+  .dice-overlay {
+    position: fixed; inset: 0;
+    background: rgba(9, 20, 13, .82);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 80; cursor: pointer;
+  }
+  .dice-overlay.hidden { display: none; }
+  .dice-overlay-content {
+    display: flex; flex-direction: column; align-items: center; gap: 22px;
+    cursor: default;
+  }
+  .big-die-face {
+    width: min(52vw, 280px);
+    height: min(52vw, 280px);
+    background: white;
+    border-radius: 28px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    padding: 6%;
+    box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  }
+  .dice-overlay.rolling .big-die-face { animation: shake .12s infinite; }
+  @keyframes shake { 0% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } 100% { transform: rotate(-3deg); } }
+  .pip { display: flex; align-items: center; justify-content: center; }
+  .pip::after { content: ''; width: 72%; height: 72%; border-radius: 50%; background: #1b2a1e; display: none; }
+  .pip.show::after { display: block; }
+  .big-die-number {
+    font-size: clamp(4.5rem, 20vw, 10rem);
+    font-weight: 900;
+    color: white;
+    line-height: 1;
+    text-shadow: 0 4px 14px rgba(0,0,0,.6);
+  }
+  .dice-close-btn {
+    background: white; color: #1b4332;
+    border: none; padding: 12px 24px;
+    border-radius: 10px; font-weight: 700;
+    font-size: 1rem; cursor: pointer;
+  }
+
+  .duel-title { font-size: 1.6rem; font-weight: 800; color: white; }
+  .duel-dice-row { display: flex; align-items: center; gap: 18px; }
+  .duel-side { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .duel-die { width: min(32vw, 170px); height: min(32vw, 170px); }
+  .duel-name { font-weight: 800; font-size: clamp(.9rem, 3vw, 1.3rem); color: white; text-align: center; max-width: 40vw; }
+  .duel-vs { font-size: 1.6rem; font-weight: 900; color: #ffd60a; }
+  .duel-result { font-size: clamp(1rem, 3vw, 1.3rem); font-weight: 700; color: white; text-align: center; min-height: 1.6em; max-width: 90vw; }
+
+  .fireworks-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
+  .firework-particle {
+    position: absolute;
+    width: 7px; height: 7px;
+    margin: -3.5px 0 0 -3.5px;
+    border-radius: 50%;
+    animation: fireworkParticle .95s ease-out forwards;
+    box-shadow: 0 0 8px 2px currentColor;
+  }
+  @keyframes fireworkParticle {
+    0% { transform: translate(0, 0) scale(1); opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(.25); opacity: 0; }
+  }
+  .victory-content { position: relative; z-index: 2; gap: 10px; }
+  .victory-trophy {
+    font-size: clamp(4.5rem, 20vw, 10rem);
+    animation: trophyBounce 1s ease-in-out infinite;
+    filter: drop-shadow(0 0 26px rgba(255,214,10,.8));
+  }
+  @keyframes trophyBounce {
+    0%, 100% { transform: translateY(0) rotate(-3deg); }
+    50% { transform: translateY(-16px) rotate(3deg); }
+  }
+  .victory-label {
+    color: #ffd60a; font-weight: 900; letter-spacing: 4px;
+    font-size: clamp(1.1rem, 4vw, 1.8rem);
+    text-shadow: 0 0 14px rgba(255,214,10,.8);
+  }
+  .victory-name {
+    font-size: clamp(2.2rem, 10vw, 5.5rem);
+    font-weight: 900; color: #ffffff;
+    text-shadow: 0 0 24px currentColor, 0 4px 12px rgba(0,0,0,.7);
+    text-align: center; max-width: 92vw; line-height: 1.1;
+  }
+
+  .penalty-instruction { color: #f1e9c9; font-size: .85rem; margin: -10px 0 0; text-align: center; max-width: 90vw; }
+  .penalty-goal {
+    position: relative;
+    width: min(80vw, 380px);
+    aspect-ratio: 4 / 3;
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.22) 0 2px, transparent 2px 14px),
+      repeating-linear-gradient(-45deg, rgba(255,255,255,.22) 0 2px, transparent 2px 14px),
+      #1b4332;
+    border: 6px solid white;
+    border-radius: 8px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    grid-template-areas:
+      "tl . tr"
+      ". m ."
+      "bl . br";
+    gap: 6px;
+    padding: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  }
+  .penalty-zone {
+    border: 2px dashed rgba(255,255,255,.6);
+    border-radius: 10px;
+    background: rgba(0,0,0,.15);
+    color: white;
+    font-weight: 700;
+    font-size: clamp(.6rem, 2vw, .82rem);
+    display: flex; align-items: center; justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    text-align: center;
+    padding: 4px;
+  }
+  .penalty-zone:hover { background: rgba(255,255,255,.25); }
+  .penalty-zone.disabled { pointer-events: none; }
+  .penalty-zone.zone-goal { background: rgba(82,183,136,.55); border-color: #52b788; }
+  .penalty-zone.zone-saved { background: rgba(231,111,81,.55); border-color: #e76f51; }
+  .penalty-zone.zone-keeper { background: rgba(72,149,239,.4); }
+  .penalty-zone[data-zone="tl"] { grid-area: tl; }
+  .penalty-zone[data-zone="tr"] { grid-area: tr; }
+  .penalty-zone[data-zone="m"] { grid-area: m; }
+  .penalty-zone[data-zone="bl"] { grid-area: bl; }
+  .penalty-zone[data-zone="br"] { grid-area: br; }
+  .zone-marker { font-size: clamp(1.1rem, 4vw, 1.8rem); }
+  .zone-marker.pop { animation: pop .35s ease; }
+
+  .sprint-lights { display: flex; gap: 14px; }
+  .sprint-light { width: 44px; height: 44px; border-radius: 50%; background: #2a2a2a; border: 3px solid #111; opacity: .35; transition: opacity .15s, box-shadow .15s; }
+  .sprint-light.lit { opacity: 1; }
+  .sprint-light.red.lit { background: #ff4d4d; box-shadow: 0 0 20px 8px rgba(255,77,77,.8); }
+  .sprint-light.yellow.lit { background: #ffd60a; box-shadow: 0 0 20px 8px rgba(255,214,10,.8); }
+  .sprint-light.green.lit { background: #52b788; box-shadow: 0 0 24px 10px rgba(82,183,136,.9); }
+  .sprint-instruction { color: #f1e9c9; font-size: 1rem; font-weight: 700; text-align: center; min-height: 1.4em; }
+  .sprint-react-btn {
+    padding: 16px 38px;
+    font-size: 1.4rem;
+    font-weight: 900;
+    border: none;
+    border-radius: 14px;
+    background: #ffd60a;
+    color: #1b2a1e;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0,0,0,.4);
+  }
+  .sprint-react-btn:active { transform: scale(.96); }
+
+  .basketball-meter {
+    position: relative;
+    width: min(85vw, 420px);
+    height: 46px;
+    display: flex;
+    border-radius: 10px;
+    overflow: visible;
+    border: 3px solid white;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  }
+  .basketball-zone { height: 100%; }
+  .basketball-zone.miss { flex: 15; background: #e76f51; border-radius: 6px 0 0 6px; }
+  .basketball-zone.miss:last-child { border-radius: 0 6px 6px 0; }
+  .basketball-zone.good { flex: 20; background: #ffd60a; }
+  .basketball-zone.perfect { flex: 30; background: #52b788; }
+  .basketball-indicator {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.9rem;
+    filter: drop-shadow(0 2px 5px rgba(0,0,0,.6));
+    will-change: left;
+  }
+
+  #activeTeamLabel { color: #1b4332; font-weight: 700; }
+
+  .log-panel { max-height: 220px; display: flex; flex-direction: column; }
+  .log-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .log-panel-head h3 { margin: 0; }
+  .ghost-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .log { overflow-y: auto; display: flex; flex-direction: column; gap: 5px; font-size: .78rem; color: #40495c; }
+  .log div { border-left: 3px solid #cdd7d0; padding-left: 7px; }
+  .log div.effect-bonus { border-color: #52b788; }
+  .log div.effect-terugval { border-color: #e76f51; }
+  .log div.effect-opdracht { border-color: #4895ef; }
+  .log div.effect-duel { border-color: #8338ec; }
+  .log div.effect-penalty { border-color: #9d4edd; }
+  .log div.effect-sprint { border-color: #fca311; }
+  .log div.effect-wissel { border-color: #ffb3c6; }
+  .log div.effect-basketbal { border-color: #4ecdc4; }
+  .log div.effect-undo { border-color: #7f9078; font-style: italic; }
+
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(10, 25, 15, .55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50; padding: 16px;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal-box {
+    background: white; border-radius: 14px; padding: 24px;
+    max-width: 380px; width: 100%; text-align: center;
+    box-shadow: 0 8px 30px rgba(0,0,0,.3);
+  }
+  .modal-box h2 { margin: 0 0 10px; font-size: 1.15rem; }
+  .modal-box p { margin: 0 0 18px; color: #40495c; font-size: .92rem; line-height: 1.4; }
+  .modal-buttons { display: flex; flex-direction: column; gap: 8px; }
+  .modal-buttons button { padding: 10px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; font-size: .9rem; }
+  .btn-success { background: #52b788; color: white; }
+  .btn-fail { background: #e5e5e0; color: #40495c; }
+  .btn-close { background: #2d6a4f; color: white; }
+
+  .summary-box { max-width: 560px; text-align: left; max-height: 82vh; overflow-y: auto; }
+  .summary-box h2 { text-align: center; }
+  .summary-box .btn-close { width: 100%; padding: 10px; border-radius: 8px; font-weight: 700; cursor: pointer; margin-top: 4px; }
+  .summary-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .summary-card { border: 1px solid #d8e2dc; border-radius: 10px; padding: 10px 12px; }
+  .summary-card-head { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 6px; font-size: .92rem; }
+  .summary-stats { display: flex; flex-wrap: wrap; gap: 6px; font-size: .78rem; color: #40495c; }
+  .summary-chip { background: #f1faee; border-radius: 6px; padding: 3px 8px; }
+  .summary-empty { color: #7f9078; font-size: .8rem; }
+
+  .toast-container {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; gap: 8px; z-index: 60;
+  }
+  .toast {
+    background: #1b4332; color: white; padding: 10px 16px; border-radius: 8px;
+    font-size: .85rem; box-shadow: 0 3px 10px rgba(0,0,0,.3);
+    animation: fadeIn .25s ease; max-width: 320px; text-align: center;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+
+  .effect-banner {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(.85);
+    background: rgba(9, 20, 13, .94);
+    color: white;
+    padding: 24px 34px;
+    border-radius: 20px;
+    font-size: clamp(1.3rem, 5vw, 2.3rem);
+    font-weight: 900;
+    text-align: center;
+    line-height: 1.3;
+    white-space: pre-line;
+    z-index: 90;
+    box-shadow: 0 14px 50px rgba(0,0,0,.6);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+    max-width: 92vw;
+    border: 3px solid transparent;
+  }
+  .effect-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .effect-banner.bonus { border-color: #52b788; }
+  .effect-banner.terugval { border-color: #e76f51; }
+  .effect-banner.wissel { border-color: #ffb3c6; }
+  .effect-banner.finish { border-color: #ffd60a; }
+
+  @media (max-width: 700px) { .game-layout { flex-direction: column; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="setup" class="screen active">
+    <div class="card">
+      <h1>🏆 Race naar de Beker</h1>
+      <p class="sub">Stel je teams in en start het spel. Onderweg liggen bonusvakjes, terugvalvakjes, opdrachten en duels.</p>
+
+      <label class="field-label">Aantal teams</label>
+      <div class="counter">
+        <button id="decreaseTeams" class="counter-btn" type="button">−</button>
+        <span id="teamCountDisplay">4</span>
+        <button id="increaseTeams" class="counter-btn" type="button">+</button>
+      </div>
+
+      <label class="field-label">Teamnamen</label>
+      <div id="teamNameInputs" class="name-grid"></div>
+
+      <button id="startGameBtn" class="primary-btn" type="button">Start spel →</button>
+    </div>
+  </div>
+
+  <div id="game" class="screen">
+    <div class="game-header">
+      <div class="scoreboard-marquee"><h1>🏆 Race naar de Beker</h1></div>
+      <div class="game-header-actions">
+        <button id="fullscreenBtn" class="ghost-btn" type="button">⛶ Fullscreen</button>
+        <button id="soundToggleBtn" class="ghost-btn" type="button">🔊 Geluid</button>
+        <button id="summaryBtn" class="ghost-btn" type="button">🏁 Eindoverzicht</button>
+        <button id="endGameBtn" class="ghost-btn" type="button">🛑 Spel beëindigen</button>
+        <button id="resetBtn" class="ghost-btn" type="button">↺ Nieuw spel</button>
+      </div>
+    </div>
+
+    <div class="game-layout">
+      <div class="board-wrapper">
+        <div id="board" class="board"></div>
+        <div class="legend">
+          <span><i class="dot normal"></i>Normaal</span>
+          <span><i class="dot bonus"></i>⚡ Bonus</span>
+          <span><i class="dot terugval"></i>⏪ Terugval</span>
+          <span><i class="dot opdracht"></i>❓ Opdracht</span>
+          <span><i class="dot penalty"></i>🥅 Penalty</span>
+          <span><i class="dot sprint"></i>🏃 Sprintstart</span>
+          <span><i class="dot wissel"></i>🔄 Wissel</span>
+          <span><i class="dot basketbal"></i>🏀 Vrije worp</span>
+        </div>
+        <div class="duel-note">⚔️ Land je op het vakje van een ander team? Dan volgt automatisch een duel — hoogste worp wint.</div>
+      </div>
+
+      <div class="controls">
+        <div class="panel scoreboard-panel" id="timerPanel">
+          <h3>⏱️ Lestimer</h3>
+          <div class="timer-display">
+            <span id="timerMin" class="scoreboard-number"></span>
+            <span class="timer-colon">:</span>
+            <span id="timerSec" class="scoreboard-number"></span>
+          </div>
+          <div class="timer-controls">
+            <input type="number" id="timerMinutesInput" min="1" max="90" value="20">
+            <button id="timerStartBtn" class="primary-btn small" type="button">Start</button>
+            <button id="timerResetBtn" class="ghost-btn" type="button">↺</button>
+          </div>
+        </div>
+
+        <div class="panel scoreboard-panel">
+          <h3>🏅 Scorebord</h3>
+          <div id="teamList" class="team-list"></div>
+        </div>
+
+        <div class="panel">
+          <h3>Zet doen voor: <span id="activeTeamLabel">–</span></h3>
+          <div class="move-controls">
+            <button id="diceBtn" class="dice-btn" type="button">🎲</button>
+            <input type="number" id="moveInput" min="1" max="100" value="1">
+            <button id="moveBtn" class="primary-btn small" type="button">Zet vooruit</button>
+          </div>
+          <p class="key-hint">Tip: druk op <kbd>Spatie</kbd> om te gooien</p>
+        </div>
+
+        <div class="panel log-panel">
+          <div class="log-panel-head">
+            <h3>Verloop</h3>
+            <button id="undoBtn" class="ghost-btn" type="button" disabled>↩ Ongedaan maken</button>
+          </div>
+          <div id="log" class="log"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <h2 id="modalTitle"></h2>
+      <p id="modalText"></p>
+      <div id="modalButtons" class="modal-buttons"></div>
+    </div>
+  </div>
+
+  <div id="diceOverlay" class="dice-overlay hidden">
+    <div class="dice-overlay-content">
+      <div id="bigDieFace" class="big-die-face">
+        <span class="pip p1"></span><span class="pip p2"></span><span class="pip p3"></span>
+        <span class="pip p4"></span><span class="pip p5"></span><span class="pip p6"></span>
+        <span class="pip p7"></span><span class="pip p8"></span><span class="pip p9"></span>
+      </div>
+      <div id="bigDieNumber" class="big-die-number">–</div>
+      <button id="closeDiceOverlay" class="dice-close-btn" type="button">Sluiten ✕</button>
+    </div>
+  </div>
+
+  <div id="duelOverlay" class="dice-overlay hidden">
+    <div class="dice-overlay-content">
+      <div class="duel-title">⚔️ Duel!</div>
+      <div class="duel-dice-row">
+        <div class="duel-side">
+          <div class="duel-name" id="duelNameA">–</div>
+          <div id="duelDieA" class="big-die-face duel-die">
+            <span class="pip p1"></span><span class="pip p2"></span><span class="pip p3"></span>
+            <span class="pip p4"></span><span class="pip p5"></span><span class="pip p6"></span>
+            <span class="pip p7"></span><span class="pip p8"></span><span class="pip p9"></span>
+          </div>
+        </div>
+        <div class="duel-vs">VS</div>
+        <div class="duel-side">
+          <div class="duel-name" id="duelNameB">–</div>
+          <div id="duelDieB" class="big-die-face duel-die">
+            <span class="pip p1"></span><span class="pip p2"></span><span class="pip p3"></span>
+            <span class="pip p4"></span><span class="pip p5"></span><span class="pip p6"></span>
+            <span class="pip p7"></span><span class="pip p8"></span><span class="pip p9"></span>
+          </div>
+        </div>
+      </div>
+      <div id="duelResult" class="duel-result"></div>
+      <button id="closeDuelOverlay" class="dice-close-btn" type="button">Sluiten ✕</button>
+    </div>
+  </div>
+
+  <div id="penaltyOverlay" class="dice-overlay hidden">
+    <div class="dice-overlay-content">
+      <div class="duel-title" id="penaltyTitle">🥅 Penalty!</div>
+      <p class="penalty-instruction">Kies een hoek om te schieten.</p>
+      <div class="penalty-goal">
+        <button class="penalty-zone" data-zone="tl" type="button">Links boven</button>
+        <button class="penalty-zone" data-zone="tr" type="button">Rechts boven</button>
+        <button class="penalty-zone" data-zone="m" type="button">Midden</button>
+        <button class="penalty-zone" data-zone="bl" type="button">Links onder</button>
+        <button class="penalty-zone" data-zone="br" type="button">Rechts onder</button>
+      </div>
+      <div id="penaltyResult" class="duel-result"></div>
+      <button id="closePenaltyOverlay" class="dice-close-btn" type="button">Sluiten ✕</button>
+    </div>
+  </div>
+
+  <div id="sprintOverlay" class="dice-overlay hidden">
+    <div class="dice-overlay-content">
+      <div class="duel-title" id="sprintTitle">🏃 Sprintstart!</div>
+      <p class="penalty-instruction">Wacht op het groene licht en klik dan zo snel mogelijk op REAGEER!</p>
+      <div class="sprint-lights">
+        <div class="sprint-light red" id="sprintLightRed"></div>
+        <div class="sprint-light yellow" id="sprintLightYellow"></div>
+        <div class="sprint-light green" id="sprintLightGreen"></div>
+      </div>
+      <div id="sprintInstruction" class="sprint-instruction"></div>
+      <button id="sprintReactBtn" class="sprint-react-btn" type="button">REAGEER!</button>
+      <div id="sprintResult" class="duel-result"></div>
+      <button id="closeSprintOverlay" class="dice-close-btn" type="button">Sluiten ✕</button>
+    </div>
+  </div>
+
+  <div id="basketballOverlay" class="dice-overlay hidden">
+    <div class="dice-overlay-content">
+      <div class="duel-title" id="basketballTitle">🏀 Vrije worp!</div>
+      <p class="penalty-instruction">Klik op SCHIET! als de bal in het groene vak staat.</p>
+      <div class="basketball-meter">
+        <div class="basketball-zone miss"></div>
+        <div class="basketball-zone good"></div>
+        <div class="basketball-zone perfect"></div>
+        <div class="basketball-zone good"></div>
+        <div class="basketball-zone miss"></div>
+        <div class="basketball-indicator" id="basketballIndicator">🏀</div>
+      </div>
+      <button id="basketballShootBtn" class="sprint-react-btn" type="button">SCHIET!</button>
+      <div id="basketballResult" class="duel-result"></div>
+      <button id="closeBasketballOverlay" class="dice-close-btn" type="button">Sluiten ✕</button>
+    </div>
+  </div>
+
+  <div id="victoryOverlay" class="dice-overlay hidden">
+    <div class="fireworks-layer" id="fireworksLayer"></div>
+    <div class="dice-overlay-content victory-content">
+      <div class="victory-trophy">🏆</div>
+      <div class="victory-label">WINNAAR!</div>
+      <div id="victoryName" class="victory-name">Team</div>
+      <button id="closeVictoryOverlay" class="dice-close-btn" type="button">Doorgaan</button>
+    </div>
+  </div>
+
+  <div id="summaryOverlay" class="modal-overlay hidden">
+    <div class="modal-box summary-box">
+      <h2>🏁 Eindoverzicht</h2>
+      <div id="summaryList" class="summary-list"></div>
+      <button id="closeSummaryOverlay" class="btn-close" type="button">Sluiten</button>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container"></div>
+  <div id="effectBanner" class="effect-banner"></div>
+</div>
+
+<script>
+(function() {
+  const COLORS = ['#e63946','#2a9d8f','#f4a261','#264653','#e9c46a','#8338ec','#3a86ff','#ff006e'];
+  const TEAM_ICONS = ['⚽','🏀','🏈','⚾','🎾','🏐','🏉','🎳'];
+  const BONUS = [8,17,28,36,47,58,66,77,88,96];
+  const TERUGVAL = [12,22,31,42,52,62,72,82,92];
+  const OPDRACHT = [5,15,25,35,45,55,65,75,85,95];
+  const PENALTY = [10,30,50,70,90];
+  const SPRINT = [3,20,40,60,80];
+  const WISSEL = [7,33,53,73,93];
+  const BASKETBAL = [14,34,54,74,94];
+  const PENALTY_ZONES = ['tl','tr','m','bl','br'];
+  const PENALTY_ZONE_LABELS = { tl: 'Links boven', tr: 'Rechts boven', m: 'Midden', bl: 'Links onder', br: 'Rechts onder' };
+  const DECO = ['⚽','🏀','🏈','⚾','🎾','🏐'];
+  const CHALLENGES = [
+    "Doe 10 push-ups.",
+    "Doe 15 push-ups.",
+    "Doe 5 push-ups (op de knieën mag ook).",
+    "Doe 20 push-ups.",
+    "Doe 10 sit-ups.",
+    "Doe 15 sit-ups.",
+    "Doe 20 sit-ups.",
+    "Doe 5 burpees.",
+    "Doe 8 burpees.",
+    "Doe 10 burpees.",
+    "Doe 12 burpees."
+  ];
+
+  const DIGIT_PATTERNS = {
+    '0': ["01110","10001","10011","10101","11001","10001","01110"],
+    '1': ["00100","01100","00100","00100","00100","00100","01110"],
+    '2': ["01110","10001","00001","00010","00100","01000","11111"],
+    '3': ["11111","00010","00100","00010","00001","10001","01110"],
+    '4': ["00010","00110","01010","10010","11111","00010","00010"],
+    '5': ["11111","10000","11110","00001","00001","10001","01110"],
+    '6': ["00110","01000","10000","11110","10001","10001","01110"],
+    '7': ["11111","00001","00010","00100","01000","01000","01000"],
+    '8': ["01110","10001","10001","01110","10001","10001","01110"],
+    '9': ["01110","10001","10001","01111","00001","00010","01100"]
+  };
+
+  let teamCount = 4;
+  let draftNames = new Array(8).fill('');
+  let teams = [];
+  let selectedTeamId = null;
+  let winnerAnnounced = false;
+  let finishCounter = 0;
+  let soundEnabled = true;
+  let audioCtx = null;
+  let timerInterval = null;
+  let timerRemaining = 0;
+  let timerRunning = false;
+  let timerStarted = false;
+  let undoStack = [];
+
+  const el = (id) => document.getElementById(id);
+
+  function cellType(n) {
+    if (n === 1) return 'start';
+    if (n === 100) return 'finish';
+    if (BONUS.includes(n)) return 'bonus';
+    if (TERUGVAL.includes(n)) return 'terugval';
+    if (OPDRACHT.includes(n)) return 'opdracht';
+    if (PENALTY.includes(n)) return 'penalty';
+    if (SPRINT.includes(n)) return 'sprint';
+    if (WISSEL.includes(n)) return 'wissel';
+    if (BASKETBAL.includes(n)) return 'basketbal';
+    return 'normal';
+  }
+
+  function cellGridPos(n) {
+    const idx = n - 1;
+    const rowFromBottom = Math.floor(idx / 10);
+    const posInRow = idx % 10;
+    const leftToRight = rowFromBottom % 2 === 0;
+    const col = leftToRight ? posInRow : (9 - posInRow);
+    const gridRowFromTop = 10 - rowFromBottom;
+    return { row: gridRowFromTop, col: col + 1 };
+  }
+
+  function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  // ---------- Sound ----------
+  function getAudioCtx() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audioCtx = null; }
+    }
+    return audioCtx;
+  }
+  function beep(freq, startTime, duration, type) {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.001, ctx.currentTime + startTime);
+    gain.gain.linearRampToValueAtTime(0.16, ctx.currentTime + startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + startTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + startTime);
+    osc.stop(ctx.currentTime + startTime + duration + 0.02);
+  }
+  function playSound(kind) {
+    if (!soundEnabled) return;
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    switch (kind) {
+      case 'diceReveal': beep(880, 0, 0.15, 'sine'); break;
+      case 'bonus': beep(523, 0, 0.12); beep(784, 0.12, 0.18); break;
+      case 'terugval': beep(392, 0, 0.15, 'sawtooth'); beep(220, 0.15, 0.25, 'sawtooth'); break;
+      case 'opdracht': beep(440, 0, 0.1); beep(440, 0.18, 0.1); break;
+      case 'duelStart': beep(220, 0, 0.07, 'square'); beep(220, 0.1, 0.07, 'square'); beep(220, 0.2, 0.07, 'square'); break;
+      case 'duelWin': beep(523, 0, 0.12); beep(659, 0.12, 0.12); beep(784, 0.24, 0.2); break;
+      case 'finish': beep(523, 0, 0.12); beep(659, 0.12, 0.12); beep(784, 0.24, 0.12); beep(1046, 0.36, 0.3); break;
+      case 'victory': beep(523, 0, 0.12); beep(659, 0.12, 0.12); beep(784, 0.24, 0.12); beep(1046, 0.36, 0.25); beep(1318, 0.5, 0.4); break;
+      case 'penaltyWhistle': beep(1200, 0, 0.3, 'square'); break;
+      case 'penaltyGoal': beep(659, 0, 0.1); beep(880, 0.1, 0.1); beep(1046, 0.2, 0.25); break;
+      case 'penaltySave': beep(300, 0, 0.1, 'sawtooth'); beep(180, 0.1, 0.3, 'sawtooth'); break;
+      case 'sprintGo': beep(1400, 0, 0.12, 'square'); break;
+      case 'sprintFalseStart': beep(220, 0, 0.1, 'sawtooth'); beep(150, 0.1, 0.25, 'sawtooth'); break;
+      case 'sprintGood': beep(659, 0, 0.1); beep(880, 0.1, 0.1); beep(1046, 0.2, 0.2); break;
+      case 'sprintSlow': beep(300, 0, 0.25, 'sine'); break;
+      case 'swap': beep(440, 0, 0.08); beep(660, 0.08, 0.08); beep(440, 0.16, 0.08); beep(660, 0.24, 0.12); break;
+      case 'basketballSwish': beep(659, 0, 0.1); beep(880, 0.1, 0.1); beep(1046, 0.2, 0.1); beep(1318, 0.3, 0.25); break;
+      case 'basketballGood': beep(659, 0, 0.12); beep(880, 0.12, 0.18); break;
+      case 'basketballMiss': beep(220, 0, 0.12, 'sawtooth'); beep(160, 0.12, 0.25, 'sawtooth'); break;
+      case 'timerDone': beep(880, 0, 0.2); beep(880, 0.3, 0.2); beep(880, 0.6, 0.35); break;
+    }
+  }
+
+  // ---------- Setup screen ----------
+  function renderNameInputs() {
+    const container = el('teamNameInputs');
+    container.innerHTML = '';
+    for (let i = 0; i < teamCount; i++) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'Team ' + (i + 1);
+      input.value = draftNames[i] || '';
+      input.dataset.index = i;
+      input.addEventListener('input', (e) => {
+        draftNames[e.target.dataset.index] = e.target.value;
+      });
+      container.appendChild(input);
+    }
+    el('teamCountDisplay').textContent = teamCount;
+    el('decreaseTeams').disabled = teamCount <= 2;
+    el('increaseTeams').disabled = teamCount >= 8;
+  }
+
+  el('decreaseTeams').addEventListener('click', () => {
+    if (teamCount > 2) { teamCount--; renderNameInputs(); }
+  });
+  el('increaseTeams').addEventListener('click', () => {
+    if (teamCount < 8) { teamCount++; renderNameInputs(); }
+  });
+
+  el('startGameBtn').addEventListener('click', () => {
+    teams = [];
+    for (let i = 0; i < teamCount; i++) {
+      const name = (draftNames[i] || '').trim() || ('Team ' + (i + 1));
+      teams.push({
+        id: i, name, color: COLORS[i % COLORS.length], icon: TEAM_ICONS[i % TEAM_ICONS.length],
+        position: 1, finished: false, finishOrder: 0,
+        stats: { penaltyAttempts: 0, penaltyGoals: 0, sprintAttempts: 0, sprintBestMs: null, sprintFalseStarts: 0, opdrachtSuccess: 0, opdrachtFail: 0, duelsWon: 0, duelsLost: 0, wisselCount: 0, basketballAttempts: 0, basketballScores: 0 }
+      });
+    }
+    selectedTeamId = teams[0].id;
+    winnerAnnounced = false;
+    finishCounter = 0;
+    undoStack = [];
+    updateUndoButtonState();
+    el('setup').classList.remove('active');
+    el('game').classList.add('active');
+    el('log').innerHTML = '';
+    buildBoard();
+    placeAllTokensAtStart();
+    renderTeamList();
+    resetTimer();
+  });
+
+  // ---------- Board ----------
+  function buildBoard() {
+    const board = el('board');
+    board.innerHTML = '';
+    for (let n = 1; n <= 100; n++) {
+      const type = cellType(n);
+      const pos = cellGridPos(n);
+      const cell = document.createElement('div');
+      cell.className = 'cell ' + type + (type === 'normal' && (pos.row + pos.col) % 2 === 0 ? ' alt' : '');
+      cell.style.gridRow = pos.row;
+      cell.style.gridColumn = pos.col;
+      cell.id = 'cell-' + n;
+
+      const num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = n;
+      cell.appendChild(num);
+
+      if (type === 'normal') {
+        const deco = document.createElement('span');
+        deco.className = 'deco';
+        deco.textContent = DECO[n % DECO.length];
+        cell.appendChild(deco);
+      } else {
+        const icon = document.createElement('span');
+        icon.className = 'icon';
+        icon.textContent = { start: '🏁', finish: '🏆', bonus: '⚡', terugval: '⏪', opdracht: '❓', penalty: '🥅', sprint: '🏃', wissel: '🔄', basketbal: '🏀' }[type];
+        cell.appendChild(icon);
+      }
+
+      const tokens = document.createElement('div');
+      tokens.className = 'tokens';
+      tokens.id = 'tokens-' + n;
+      cell.appendChild(tokens);
+
+      board.appendChild(cell);
+    }
+  }
+
+  function placeAllTokensAtStart() {
+    teams.forEach(t => {
+      const token = document.createElement('div');
+      token.className = 'token';
+      token.id = 'token-' + t.id;
+      token.style.background = 'radial-gradient(circle at 32% 28%, rgba(255,255,255,.65), ' + t.color + ' 55%, rgba(0,0,0,.35) 100%)';
+      token.style.setProperty('--bob-delay', (t.id * 0.15) + 's');
+      token.textContent = t.icon;
+      token.title = t.name;
+      el('tokens-1').appendChild(token);
+    });
+    setActiveToken(selectedTeamId);
+  }
+
+  function setActiveToken(teamId) {
+    teams.forEach(t => {
+      const token = el('token-' + t.id);
+      if (token) token.classList.toggle('active-token', t.id === teamId);
+    });
+  }
+
+  function moveTokenTo(teamId, newPos) {
+    const token = el('token-' + teamId);
+    const target = el('tokens-' + newPos);
+    target.appendChild(token);
+    token.classList.remove('pop');
+    void token.offsetWidth;
+    token.classList.add('pop');
+    setTimeout(() => token.classList.remove('pop'), 400);
+  }
+
+  // ---------- Scoreboard digit rendering ----------
+  function renderScoreboardNumber(container, numStr) {
+    container.innerHTML = '';
+    for (const ch of numStr) {
+      const digitEl = document.createElement('div');
+      digitEl.className = 'digit';
+      const pattern = DIGIT_PATTERNS[ch] || DIGIT_PATTERNS['0'];
+      for (let r = 0; r < 7; r++) {
+        for (let c = 0; c < 5; c++) {
+          const bulb = document.createElement('span');
+          bulb.className = 'bulb' + (pattern[r][c] === '1' ? ' lit' : '');
+          digitEl.appendChild(bulb);
+        }
+      }
+      container.appendChild(digitEl);
+    }
+  }
+
+  // ---------- Team list & ranglijst ----------
+  const FINISH_MEDALS = ['🥇', '🥈', '🥉'];
+
+  function renderTeamList() {
+    const container = el('teamList');
+    container.innerHTML = '';
+    const sorted = [...teams].sort((a, b) => {
+      if (a.position !== b.position) return b.position - a.position;
+      if (a.finished && b.finished) return a.finishOrder - b.finishOrder;
+      return 0;
+    });
+    sorted.forEach(t => {
+      const row = document.createElement('div');
+      row.className = 'team-row' + (t.id === selectedTeamId ? ' active' : '') + (t.finished ? ' finished' : '');
+      row.addEventListener('click', () => {
+        if (t.finished) return;
+        selectedTeamId = t.id;
+        renderTeamList();
+        updateActiveLabel();
+      });
+
+      const dot = document.createElement('span');
+      dot.className = 'team-dot';
+      dot.style.background = t.color;
+      dot.style.setProperty('--glow', t.color);
+
+      const name = document.createElement('span');
+      name.className = 'team-name';
+      let medalSuffix = '';
+      if (t.finished) {
+        medalSuffix = ' ' + (FINISH_MEDALS[t.finishOrder - 1] || ('🏁#' + t.finishOrder));
+      }
+      name.textContent = t.name + medalSuffix;
+
+      const posWrap = document.createElement('span');
+      posWrap.className = 'scoreboard-number-wrap';
+      const posNum = document.createElement('span');
+      posNum.className = 'scoreboard-number';
+      renderScoreboardNumber(posNum, String(t.position).padStart(3, '0'));
+      const posSuffix = document.createElement('span');
+      posSuffix.className = 'scoreboard-suffix';
+      posSuffix.textContent = '/100';
+      posWrap.appendChild(posNum);
+      posWrap.appendChild(posSuffix);
+
+      row.appendChild(dot);
+      row.appendChild(name);
+      row.appendChild(posWrap);
+      container.appendChild(row);
+    });
+    updateActiveLabel();
+  }
+
+  function updateActiveLabel() {
+    const t = teams.find(x => x.id === selectedTeamId);
+    el('activeTeamLabel').textContent = t ? t.name : '–';
+    setActiveToken(selectedTeamId);
+  }
+
+  // ---------- Log & toast ----------
+  function addLog(text, effectClass) {
+    const div = document.createElement('div');
+    if (effectClass) div.className = 'effect-' + effectClass;
+    div.textContent = text;
+    const log = el('log');
+    log.prepend(div);
+  }
+
+  function showToast(msg) {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = msg;
+    el('toastContainer').appendChild(toast);
+    setTimeout(() => toast.remove(), 2600);
+  }
+
+  function showBigBanner(msg, effectClass, duration) {
+    const banner = el('effectBanner');
+    banner.textContent = msg;
+    banner.className = 'effect-banner' + (effectClass ? ' ' + effectClass : '');
+    void banner.offsetWidth;
+    banner.classList.add('show');
+    clearTimeout(banner._hideTimer);
+    banner._hideTimer = setTimeout(() => banner.classList.remove('show'), duration || 2200);
+  }
+
+  // ---------- Modal ----------
+  function openModal(title, text, buttons) {
+    el('modalTitle').textContent = title;
+    el('modalText').textContent = text;
+    const btnContainer = el('modalButtons');
+    btnContainer.innerHTML = '';
+    buttons.forEach(b => {
+      const btn = document.createElement('button');
+      btn.className = b.className;
+      btn.textContent = b.label;
+      btn.addEventListener('click', () => {
+        closeModal();
+        if (b.onClick) b.onClick();
+      });
+      btnContainer.appendChild(btn);
+    });
+    el('modal').classList.remove('hidden');
+  }
+  function closeModal() {
+    el('modal').classList.add('hidden');
+  }
+
+  // ---------- Dice face rendering (shared by big dice + duel dice) ----------
+  const PIP_POSITIONS = {
+    1: [5],
+    2: [1, 9],
+    3: [1, 5, 9],
+    4: [1, 3, 7, 9],
+    5: [1, 3, 5, 7, 9],
+    6: [1, 3, 4, 6, 7, 9]
+  };
+
+  function setDieFaceIn(faceEl, numberEl, value) {
+    for (let i = 1; i <= 9; i++) {
+      const pip = faceEl.querySelector('.pip.p' + i);
+      if (pip) pip.classList.toggle('show', PIP_POSITIONS[value].includes(i));
+    }
+    if (numberEl) numberEl.textContent = value;
+  }
+
+  // ---------- Movement ----------
+  function applyMove(teamId, delta, label, checkEffects) {
+    if (checkEffects === undefined) checkEffects = true;
+    const team = teams.find(t => t.id === teamId);
+    if (!team || team.finished) return;
+
+    const oldPos = team.position;
+    let newPos = oldPos + delta;
+    if (newPos > 100) newPos = 100;
+    if (newPos < 1) newPos = 1;
+    team.position = newPos;
+    moveTokenTo(teamId, newPos);
+
+    addLog(team.name + ': vakje ' + oldPos + ' → ' + newPos + ' (' + label + ')');
+    renderTeamList();
+
+    if (newPos === 100) {
+      team.finished = true;
+      finishCounter++;
+      team.finishOrder = finishCounter;
+      renderTeamList();
+      if (!winnerAnnounced) {
+        winnerAnnounced = true;
+        openVictoryOverlay(team);
+      } else {
+        playSound('finish');
+        showToast('🏁 ' + team.name + ' is ook gefinisht!');
+      }
+      return;
+    }
+
+    if (checkEffects) {
+      if (newPos !== 1) {
+        const occupants = teams.filter(t => t.id !== teamId && !t.finished && t.position === newPos);
+        if (occupants.length > 0) {
+          const opponent = occupants[randInt(0, occupants.length - 1)];
+          triggerDuel(teamId, opponent.id, () => checkCellEffects(teamId));
+          return;
+        }
+      }
+      checkCellEffects(teamId);
+    }
+  }
+
+  function checkCellEffects(teamId) {
+    const team = teams.find(t => t.id === teamId);
+    if (!team || team.finished) return;
+    const type = cellType(team.position);
+    if (type === 'bonus') {
+      const extra = randInt(1, 3);
+      playSound('bonus');
+      showBigBanner('⚡ BONUS!\n' + team.name + ' mag ' + extra + ' vakjes extra vooruit!', 'bonus');
+      setTimeout(() => applyMove(teamId, extra, 'Bonusvakje', false), 450);
+    } else if (type === 'terugval') {
+      const malus = randInt(1, 4);
+      playSound('terugval');
+      showBigBanner('⏪ TEGENVALLER!\n' + team.name + ' gaat ' + malus + ' vakjes terug.', 'terugval');
+      setTimeout(() => applyMove(teamId, -malus, 'Terugvalvakje', false), 450);
+    } else if (type === 'opdracht') {
+      playSound('opdracht');
+      const challenge = CHALLENGES[randInt(0, CHALLENGES.length - 1)];
+      setTimeout(() => {
+        openModal('❓ Opdracht voor ' + team.name, challenge, [
+          { label: '✅ Geslaagd (+3 vakjes)', className: 'btn-success', onClick: () => { team.stats.opdrachtSuccess++; applyMove(teamId, 3, 'Opdracht geslaagd', false); } },
+          { label: '❌ Niet gelukt (blijf staan)', className: 'btn-fail', onClick: () => {
+              team.stats.opdrachtFail++;
+              addLog(team.name + ' bleef staan (opdracht niet gelukt)', 'opdracht');
+              showBigBanner('❌ ' + team.name + ' bleef staan.', 'terugval');
+            } }
+        ]);
+      }, 300);
+    } else if (type === 'penalty') {
+      playSound('penaltyWhistle');
+      setTimeout(() => openPenaltyOverlay(team), 300);
+    } else if (type === 'sprint') {
+      setTimeout(() => openSprintOverlay(team), 300);
+    } else if (type === 'wissel') {
+      setTimeout(() => performSwap(teamId), 300);
+    } else if (type === 'basketbal') {
+      setTimeout(() => openBasketballOverlay(team), 300);
+    }
+  }
+
+  function performSwap(teamId) {
+    const team = teams.find(t => t.id === teamId);
+    if (!team || team.finished) return;
+    const candidates = teams.filter(t => t.id !== teamId && !t.finished);
+    if (candidates.length === 0) {
+      showBigBanner('🔄 Geen ander team om mee te wisselen.', 'wissel');
+      addLog(team.name + ' landt op het wisselvakje, maar er is niemand om mee te wisselen.', 'wissel');
+      return;
+    }
+    const other = candidates[randInt(0, candidates.length - 1)];
+    const posA = team.position;
+    const posB = other.position;
+    team.position = posB;
+    other.position = posA;
+    moveTokenTo(team.id, posB);
+    moveTokenTo(other.id, posA);
+    team.stats.wisselCount++;
+    other.stats.wisselCount++;
+    playSound('swap');
+    addLog(team.name + ' en ' + other.name + ' wisselen van plek! (' + posA + ' ↔ ' + posB + ')', 'wissel');
+    showBigBanner('🔄 WISSEL!\n' + team.name + ' en ' + other.name + ' ruilen van plek!', 'wissel');
+    renderTeamList();
+  }
+
+  // ---------- Duel ----------
+  function triggerDuel(teamId, opponentId, onComplete) {
+    const team = teams.find(t => t.id === teamId);
+    const opp = teams.find(t => t.id === opponentId);
+    if (!team || !opp) { onComplete(); return; }
+
+    let rollA = randInt(1, 6);
+    let rollB = randInt(1, 6);
+    while (rollB === rollA) { rollB = randInt(1, 6); }
+
+    playSound('duelStart');
+    el('duelNameA').textContent = team.name;
+    el('duelNameA').style.color = team.color;
+    el('duelNameB').textContent = opp.name;
+    el('duelNameB').style.color = opp.color;
+    el('duelResult').textContent = '';
+
+    const overlay = el('duelOverlay');
+    const dieA = el('duelDieA');
+    const dieB = el('duelDieB');
+    overlay.classList.remove('hidden');
+    overlay.classList.add('rolling');
+
+    let ticks = 0;
+    const maxTicks = 14;
+    const interval = setInterval(() => {
+      ticks++;
+      setDieFaceIn(dieA, null, randInt(1, 6));
+      setDieFaceIn(dieB, null, randInt(1, 6));
+      if (ticks >= maxTicks) {
+        clearInterval(interval);
+        setDieFaceIn(dieA, null, rollA);
+        setDieFaceIn(dieB, null, rollB);
+        overlay.classList.remove('rolling');
+
+        const winner = rollA > rollB ? team : opp;
+        const loser = rollA > rollB ? opp : team;
+        winner.stats.duelsWon++;
+        loser.stats.duelsLost++;
+        const pushback = randInt(2, 4);
+
+        applyMove(loser.id, -pushback, 'Duel verloren', false);
+        addLog(winner.name + ' wint het duel van ' + loser.name, 'duel');
+        renderTeamList();
+        playSound('duelWin');
+
+        el('duelResult').textContent = winner.name + ' wint (' + Math.max(rollA, rollB) + ' vs ' + Math.min(rollA, rollB) + ')! ' + loser.name + ' gaat ' + pushback + ' vakjes terug.';
+
+        const finish = () => { overlay.classList.add('hidden'); onComplete(); };
+        el('closeDuelOverlay').onclick = finish;
+        overlay.onclick = (e) => { if (e.target === overlay) finish(); };
+        setTimeout(finish, 3200);
+      }
+    }, 70);
+  }
+
+  // ---------- Penalty ----------
+  function openPenaltyOverlay(team) {
+    const overlay = el('penaltyOverlay');
+    el('penaltyTitle').textContent = '🥅 Penalty voor ' + team.name + '!';
+    el('penaltyResult').textContent = '';
+
+    const zoneEls = overlay.querySelectorAll('.penalty-zone');
+    zoneEls.forEach(z => {
+      z.className = 'penalty-zone';
+      z.innerHTML = PENALTY_ZONE_LABELS[z.dataset.zone];
+    });
+
+    overlay.classList.remove('hidden');
+    el('closePenaltyOverlay').onclick = () => overlay.classList.add('hidden');
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.classList.add('hidden'); };
+
+    zoneEls.forEach(z => {
+      z.onclick = () => handlePenaltyChoice(z.dataset.zone, team, overlay);
+    });
+  }
+
+  function handlePenaltyChoice(chosenZone, team, overlay) {
+    const zoneEls = overlay.querySelectorAll('.penalty-zone');
+    zoneEls.forEach(z => { z.classList.add('disabled'); });
+
+    setTimeout(() => {
+      const keeperZone = PENALTY_ZONES[randInt(0, PENALTY_ZONES.length - 1)];
+      const chosenEl = overlay.querySelector('.penalty-zone[data-zone="' + chosenZone + '"]');
+      const keeperEl = overlay.querySelector('.penalty-zone[data-zone="' + keeperZone + '"]');
+
+      const ball = document.createElement('span');
+      ball.className = 'zone-marker';
+      ball.textContent = '⚽';
+      chosenEl.appendChild(ball);
+      void ball.offsetWidth;
+      ball.classList.add('pop');
+
+      const keeper = document.createElement('span');
+      keeper.className = 'zone-marker';
+      keeper.textContent = '🧤';
+      keeperEl.appendChild(keeper);
+      void keeper.offsetWidth;
+      keeper.classList.add('pop');
+
+      const saved = keeperZone === chosenZone;
+      team.stats.penaltyAttempts++;
+      if (!saved) team.stats.penaltyGoals++;
+      if (saved) {
+        chosenEl.classList.add('zone-saved');
+      } else {
+        chosenEl.classList.add('zone-goal');
+        keeperEl.classList.add('zone-keeper');
+      }
+
+      playSound(saved ? 'penaltySave' : 'penaltyGoal');
+      applyMove(team.id, saved ? -3 : 3, saved ? 'Penalty gemist' : 'Penalty gescoord', false);
+      addLog(team.name + (saved ? ': penalty gestopt door de keeper (-3)' : ': penalty erin! (+3)'), 'penalty');
+      renderTeamList();
+
+      el('penaltyResult').textContent = saved
+        ? '🧤 Gered! De keeper dook naar ' + PENALTY_ZONE_LABELS[keeperZone].toLowerCase() + '. ' + team.name + ' gaat 3 vakjes terug.'
+        : '⚽ Goal! ' + team.name + ' schiet raak en mag 3 vakjes vooruit.';
+
+      const finish = () => { overlay.classList.add('hidden'); };
+      el('closePenaltyOverlay').onclick = finish;
+      overlay.onclick = (e) => { if (e.target === overlay) finish(); };
+      setTimeout(finish, 4500);
+    }, 500);
+  }
+
+  // ---------- Sprintstart ----------
+  let sprintState = { phase: 'idle', startTime: 0, timers: [] };
+
+  function clearSprintTimers() {
+    sprintState.timers.forEach(t => clearTimeout(t));
+    sprintState.timers = [];
+  }
+
+  function openSprintOverlay(team) {
+    const overlay = el('sprintOverlay');
+    el('sprintTitle').textContent = '🏃 Sprintstart voor ' + team.name + '!';
+    el('sprintResult').textContent = '';
+    el('sprintInstruction').textContent = 'Wacht op het groene licht...';
+    ['sprintLightRed', 'sprintLightYellow', 'sprintLightGreen'].forEach(id => el(id).classList.remove('lit'));
+
+    clearSprintTimers();
+    sprintState.phase = 'red';
+    overlay.classList.remove('hidden');
+    el('sprintLightRed').classList.add('lit');
+
+    const delay1 = randInt(700, 1300);
+    const delay2 = delay1 + randInt(900, 1800);
+
+    sprintState.timers.push(setTimeout(() => {
+      el('sprintLightYellow').classList.add('lit');
+      sprintState.phase = 'yellow';
+    }, delay1));
+
+    sprintState.timers.push(setTimeout(() => {
+      el('sprintLightRed').classList.remove('lit');
+      el('sprintLightYellow').classList.remove('lit');
+      el('sprintLightGreen').classList.add('lit');
+      el('sprintInstruction').textContent = 'NU! Klik snel!';
+      sprintState.phase = 'go';
+      sprintState.startTime = performance.now();
+      playSound('sprintGo');
+    }, delay2));
+
+    const closeNow = () => { clearSprintTimers(); overlay.classList.add('hidden'); };
+    el('closeSprintOverlay').onclick = closeNow;
+    overlay.onclick = (e) => { if (e.target === overlay) closeNow(); };
+    el('sprintReactBtn').onclick = () => handleSprintClick(team, overlay);
+  }
+
+  function handleSprintClick(team, overlay) {
+    if (sprintState.phase === 'idle' || sprintState.phase === 'done') return;
+
+    if (sprintState.phase !== 'go') {
+      sprintState.phase = 'done';
+      clearSprintTimers();
+      team.stats.sprintFalseStarts++;
+      playSound('sprintFalseStart');
+      applyMove(team.id, -3, 'Vroege start', false);
+      addLog(team.name + ': valse start bij de sprint (-3)', 'sprint');
+      renderTeamList();
+      el('sprintInstruction').textContent = '';
+      el('sprintResult').textContent = '❌ Vroege start! ' + team.name + ' gaat 3 vakjes terug.';
+      setTimeout(() => overlay.classList.add('hidden'), 3200);
+      return;
+    }
+
+    const reactionMs = Math.round(performance.now() - sprintState.startTime);
+    sprintState.phase = 'done';
+    team.stats.sprintAttempts++;
+    if (team.stats.sprintBestMs === null || reactionMs < team.stats.sprintBestMs) team.stats.sprintBestMs = reactionMs;
+
+    let bonus, label;
+    if (reactionMs < 250) { bonus = 5; label = '🚀 Bliksemstart!'; }
+    else if (reactionMs < 500) { bonus = 3; label = '⚡ Snelle start!'; }
+    else if (reactionMs < 800) { bonus = 1; label = '✅ Prima start.'; }
+    else { bonus = 0; label = '🐢 Trage start.'; }
+
+    playSound(bonus > 0 ? 'sprintGood' : 'sprintSlow');
+    if (bonus > 0) applyMove(team.id, bonus, 'Sprintstart', false);
+    addLog(team.name + ': reactietijd ' + reactionMs + 'ms — ' + label + (bonus > 0 ? ' (+' + bonus + ')' : ''), 'sprint');
+    renderTeamList();
+
+    el('sprintInstruction').textContent = '';
+    el('sprintResult').textContent = label + ' Reactietijd: ' + reactionMs + ' ms.' + (bonus > 0 ? ' ' + team.name + ' mag ' + bonus + ' vakjes vooruit.' : ' Geen bonus deze keer.');
+    setTimeout(() => overlay.classList.add('hidden'), 3200);
+  }
+
+  // ---------- Basketbal vrije worp ----------
+  let basketballAnimId = null;
+  let basketballActive = false;
+  let basketballPos = 50;
+  let basketballStartTime = 0;
+
+  function basketballZoneAt(pos) {
+    if (pos >= 35 && pos <= 65) return 'perfect';
+    if ((pos >= 15 && pos < 35) || (pos > 65 && pos <= 85)) return 'good';
+    return 'miss';
+  }
+
+  function basketballTick(timestamp) {
+    if (!basketballActive) return;
+    const elapsed = timestamp - basketballStartTime;
+    const period = 1300;
+    basketballPos = (Math.sin((elapsed / period) * Math.PI * 2) + 1) / 2 * 100;
+    el('basketballIndicator').style.left = basketballPos + '%';
+    basketballAnimId = requestAnimationFrame(basketballTick);
+  }
+
+  function stopBasketballMeter() {
+    basketballActive = false;
+    if (basketballAnimId) cancelAnimationFrame(basketballAnimId);
+    basketballAnimId = null;
+  }
+
+  function openBasketballOverlay(team) {
+    const overlay = el('basketballOverlay');
+    el('basketballTitle').textContent = '🏀 Vrije worp voor ' + team.name + '!';
+    el('basketballResult').textContent = '';
+    el('basketballShootBtn').disabled = false;
+    overlay.classList.remove('hidden');
+
+    basketballActive = true;
+    basketballStartTime = performance.now();
+    basketballAnimId = requestAnimationFrame(basketballTick);
+
+    const closeFn = () => { stopBasketballMeter(); overlay.classList.add('hidden'); };
+    el('closeBasketballOverlay').onclick = closeFn;
+    overlay.onclick = (e) => { if (e.target === overlay) closeFn(); };
+    el('basketballShootBtn').onclick = () => handleBasketballShoot(team, overlay);
+  }
+
+  function handleBasketballShoot(team, overlay) {
+    stopBasketballMeter();
+    el('basketballShootBtn').disabled = true;
+
+    const zone = basketballZoneAt(basketballPos);
+    let delta, label, soundKind;
+    if (zone === 'perfect') { delta = 5; label = '🎯 Swish! Perfecte worp!'; soundKind = 'basketballSwish'; }
+    else if (zone === 'good') { delta = 3; label = '🏀 Erin! Mooie worp.'; soundKind = 'basketballGood'; }
+    else { delta = -2; label = '❌ Mis! De bal stuit van de ring.'; soundKind = 'basketballMiss'; }
+
+    team.stats.basketballAttempts++;
+    if (delta > 0) team.stats.basketballScores++;
+
+    playSound(soundKind);
+    applyMove(team.id, delta, 'Vrije worp (' + zone + ')', false);
+    addLog(team.name + ': vrije worp — ' + label, 'basketbal');
+    renderTeamList();
+
+    el('basketballResult').textContent = label + ' ' + team.name + (delta > 0 ? ' mag ' + delta + ' vakjes vooruit.' : ' gaat ' + Math.abs(delta) + ' vakjes terug.');
+
+    setTimeout(() => overlay.classList.add('hidden'), 2000);
+  }
+
+  // ---------- Lestimer ----------
+  function updateTimerDisplay() {
+    const clamped = Math.max(0, timerRemaining);
+    const mm = Math.floor(clamped / 60);
+    const ss = clamped % 60;
+    renderScoreboardNumber(el('timerMin'), String(mm).padStart(2, '0'));
+    renderScoreboardNumber(el('timerSec'), String(ss).padStart(2, '0'));
+    el('timerPanel').classList.toggle('warning', clamped > 0 && clamped <= 60);
+  }
+
+  function tickTimer() {
+    timerRemaining--;
+    if (timerRemaining <= 0) {
+      timerRemaining = 0;
+      clearInterval(timerInterval);
+      timerInterval = null;
+      timerRunning = false;
+      el('timerStartBtn').textContent = 'Start';
+      el('timerPanel').classList.add('done');
+      playSound('timerDone');
+      showBigBanner('⏰ Tijd is om!', 'terugval');
+    }
+    updateTimerDisplay();
+  }
+
+  function resetTimer() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    timerRunning = false;
+    timerStarted = false;
+    el('timerMinutesInput').disabled = false;
+    el('timerStartBtn').textContent = 'Start';
+    el('timerPanel').classList.remove('warning', 'done');
+    const mins = parseInt(el('timerMinutesInput').value, 10) || 20;
+    timerRemaining = mins * 60;
+    updateTimerDisplay();
+  }
+
+  el('timerStartBtn').addEventListener('click', () => {
+    if (timerRunning) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      timerRunning = false;
+      el('timerStartBtn').textContent = 'Hervat';
+      return;
+    }
+    if (!timerStarted) {
+      const mins = parseInt(el('timerMinutesInput').value, 10) || 20;
+      timerRemaining = Math.max(1, mins) * 60;
+      timerStarted = true;
+      el('timerMinutesInput').disabled = true;
+    }
+    el('timerPanel').classList.remove('done');
+    timerRunning = true;
+    el('timerStartBtn').textContent = 'Pauze';
+    timerInterval = setInterval(tickTimer, 1000);
+  });
+
+  el('timerResetBtn').addEventListener('click', resetTimer);
+
+  // ---------- Big dice roll ----------
+  let diceRolling = false;
+
+  function rollDiceBig(team) {
+    diceRolling = true;
+    const finalValue = randInt(1, 6);
+    el('moveInput').value = finalValue;
+    const overlay = el('diceOverlay');
+    const face = el('bigDieFace');
+    overlay.classList.remove('hidden');
+    overlay.classList.add('rolling');
+    let ticks = 0;
+    const maxTicks = 14;
+    const interval = setInterval(() => {
+      ticks++;
+      setDieFaceIn(face, el('bigDieNumber'), randInt(1, 6));
+      if (ticks >= maxTicks) {
+        clearInterval(interval);
+        setDieFaceIn(face, el('bigDieNumber'), finalValue);
+        overlay.classList.remove('rolling');
+        playSound('diceReveal');
+        diceRolling = false;
+        setTimeout(() => {
+          overlay.classList.add('hidden');
+          pushUndoSnapshot();
+          applyMove(team.id, finalValue, 'Dobbelsteen');
+        }, 1100);
+      }
+    }, 70);
+  }
+
+  function closeDiceOverlayFn() {
+    el('diceOverlay').classList.add('hidden');
+  }
+
+  el('closeDiceOverlay').addEventListener('click', closeDiceOverlayFn);
+  el('diceOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'diceOverlay') closeDiceOverlayFn();
+  });
+
+  el('diceBtn').addEventListener('click', () => {
+    if (diceRolling) return;
+    const team = teams.find(t => t.id === selectedTeamId);
+    if (!team) { showToast('Selecteer eerst een team.'); return; }
+    if (team.finished) { showToast(team.name + ' is al gefinisht.'); return; }
+
+    const btn = el('diceBtn');
+    btn.classList.remove('rolling');
+    void btn.offsetWidth;
+    btn.classList.add('rolling');
+    rollDiceBig(team);
+  });
+
+  function isAnyOverlayOpen() {
+    const ids = ['modal', 'diceOverlay', 'duelOverlay', 'penaltyOverlay', 'sprintOverlay', 'summaryOverlay', 'victoryOverlay'];
+    return ids.some(id => {
+      const overlayEl = document.getElementById(id);
+      return overlayEl && !overlayEl.classList.contains('hidden');
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' && e.key !== ' ') return;
+    const tag = document.activeElement ? document.activeElement.tagName : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (!el('game').classList.contains('active')) return;
+    if (isAnyOverlayOpen()) return;
+    e.preventDefault();
+    el('diceBtn').click();
+  });
+
+  el('moveBtn').addEventListener('click', () => {
+    const team = teams.find(t => t.id === selectedTeamId);
+    if (!team) { showToast('Selecteer eerst een team.'); return; }
+    if (team.finished) { showToast(team.name + ' is al gefinisht.'); return; }
+    const val = parseInt(el('moveInput').value, 10);
+    if (!val || val < 1) { showToast('Vul een geldig aantal vakjes in.'); return; }
+    pushUndoSnapshot();
+    applyMove(selectedTeamId, val, 'Zet');
+  });
+
+  // ---------- Overwinning & vuurwerk ----------
+  let fireworksInterval = null;
+
+  function spawnFirework() {
+    const layer = el('fireworksLayer');
+    const x = randInt(10, 90);
+    const y = randInt(10, 55);
+    const colors = ['#ffd60a', '#ff006e', '#3a86ff', '#52b788', '#ff8fa3', '#8338ec', '#fca311'];
+    const count = 14;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i / count) + Math.random() * 0.3;
+      const distance = 60 + Math.random() * 50;
+      const dx = Math.cos(angle) * distance;
+      const dy = Math.sin(angle) * distance;
+      const p = document.createElement('div');
+      p.className = 'firework-particle';
+      p.style.left = x + '%';
+      p.style.top = y + '%';
+      p.style.setProperty('--dx', dx + 'px');
+      p.style.setProperty('--dy', dy + 'px');
+      p.style.color = colors[randInt(0, colors.length - 1)];
+      p.style.background = 'currentColor';
+      layer.appendChild(p);
+      setTimeout(() => p.remove(), 950);
+    }
+  }
+
+  function startFireworks() {
+    stopFireworks();
+    spawnFirework();
+    fireworksInterval = setInterval(spawnFirework, 450);
+  }
+
+  function stopFireworks() {
+    if (fireworksInterval) { clearInterval(fireworksInterval); fireworksInterval = null; }
+    el('fireworksLayer').innerHTML = '';
+  }
+
+  function openVictoryOverlay(team, onCloseCallback) {
+    el('victoryName').textContent = team.name;
+    el('victoryName').style.color = team.color;
+    const overlay = el('victoryOverlay');
+    overlay.classList.remove('hidden');
+    playSound('victory');
+    startFireworks();
+    const closeFn = () => {
+      overlay.classList.add('hidden');
+      stopFireworks();
+      if (onCloseCallback) onCloseCallback();
+    };
+    el('closeVictoryOverlay').onclick = closeFn;
+    overlay.onclick = (e) => { if (e.target === overlay) closeFn(); };
+  }
+
+  // ---------- Ongedaan maken ----------
+  function pushUndoSnapshot() {
+    undoStack.push({
+      teams: JSON.parse(JSON.stringify(teams)),
+      winnerAnnounced: winnerAnnounced,
+      finishCounter: finishCounter,
+      selectedTeamId: selectedTeamId
+    });
+    if (undoStack.length > 15) undoStack.shift();
+    updateUndoButtonState();
+  }
+
+  function updateUndoButtonState() {
+    el('undoBtn').disabled = undoStack.length === 0;
+  }
+
+  function undoLastTurn() {
+    if (undoStack.length === 0) return;
+    const snapshot = undoStack.pop();
+    teams = snapshot.teams;
+    winnerAnnounced = snapshot.winnerAnnounced;
+    finishCounter = snapshot.finishCounter;
+    selectedTeamId = snapshot.selectedTeamId;
+    teams.forEach(t => moveTokenTo(t.id, t.position));
+    renderTeamList();
+    addLog('↩ Laatste beurt ongedaan gemaakt.', 'undo');
+    showBigBanner('↩ Beurt ongedaan gemaakt.', 'wissel');
+    updateUndoButtonState();
+  }
+
+  el('undoBtn').addEventListener('click', undoLastTurn);
+
+  // ---------- Eindoverzicht ----------
+  function addChip(container, text) {
+    const chip = document.createElement('span');
+    chip.className = 'summary-chip';
+    chip.textContent = text;
+    container.appendChild(chip);
+  }
+
+  function renderSummary() {
+    const container = el('summaryList');
+    container.innerHTML = '';
+    if (teams.length === 0) {
+      container.innerHTML = '<p class="summary-empty">Nog geen spel gestart.</p>';
+      return;
+    }
+    const sorted = [...teams].sort((a, b) => {
+      if (a.position !== b.position) return b.position - a.position;
+      if (a.finished && b.finished) return a.finishOrder - b.finishOrder;
+      return 0;
+    });
+    sorted.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'summary-card';
+
+      const head = document.createElement('div');
+      head.className = 'summary-card-head';
+      const dot = document.createElement('span');
+      dot.className = 'team-dot';
+      dot.style.background = t.color;
+      const medalSuffix = t.finished ? ' ' + (FINISH_MEDALS[t.finishOrder - 1] || ('🏁#' + t.finishOrder)) : '';
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = t.name + medalSuffix + ' — vakje ' + t.position + '/100';
+      head.appendChild(dot);
+      head.appendChild(nameSpan);
+      card.appendChild(head);
+
+      const stats = document.createElement('div');
+      stats.className = 'summary-stats';
+      const s = t.stats || {};
+      if (s.penaltyAttempts) addChip(stats, '🥅 ' + s.penaltyGoals + '/' + s.penaltyAttempts + ' penalty\'s');
+      if (s.sprintAttempts || s.sprintFalseStarts) addChip(stats, '🏃 beste ' + (s.sprintBestMs != null ? s.sprintBestMs + 'ms' : '-') + (s.sprintFalseStarts ? ' (' + s.sprintFalseStarts + 'x vals)' : ''));
+      if (s.opdrachtSuccess || s.opdrachtFail) addChip(stats, '💪 ' + s.opdrachtSuccess + '/' + (s.opdrachtSuccess + s.opdrachtFail) + ' opdrachten');
+      if (s.duelsWon || s.duelsLost) addChip(stats, '⚔️ ' + s.duelsWon + 'W - ' + s.duelsLost + 'L');
+      if (s.wisselCount) addChip(stats, '🔄 ' + s.wisselCount + 'x gewisseld');
+      if (s.basketballAttempts) addChip(stats, '🏀 ' + s.basketballScores + '/' + s.basketballAttempts + ' vrije worpen');
+      if (!stats.children.length) addChip(stats, 'Nog geen bijzondere vakjes gehad.');
+      card.appendChild(stats);
+
+      container.appendChild(card);
+    });
+  }
+
+  function openSummaryOverlay() {
+    renderSummary();
+    el('summaryOverlay').classList.remove('hidden');
+  }
+
+  el('summaryBtn').addEventListener('click', openSummaryOverlay);
+  el('closeSummaryOverlay').addEventListener('click', () => el('summaryOverlay').classList.add('hidden'));
+  el('summaryOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'summaryOverlay') el('summaryOverlay').classList.add('hidden');
+  });
+
+  el('endGameBtn').addEventListener('click', () => {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    timerRunning = false;
+    if (el('timerStartBtn')) el('timerStartBtn').textContent = 'Start';
+    if (teams.length === 0) { showToast('Er is nog geen spel gestart.'); return; }
+    const leader = [...teams].sort((a, b) => {
+      if (a.position !== b.position) return b.position - a.position;
+      if (a.finished && b.finished) return a.finishOrder - b.finishOrder;
+      return 0;
+    })[0];
+    openVictoryOverlay(leader, openSummaryOverlay);
+  });
+
+  el('resetBtn').addEventListener('click', () => {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    timerRunning = false;
+    el('game').classList.remove('active');
+    el('setup').classList.add('active');
+  });
+
+  // ---------- Fullscreen ----------
+  function toggleFullscreen() {
+    const isFs = document.body.classList.toggle('pseudo-fullscreen');
+    el('fullscreenBtn').textContent = isFs ? '⤢ Normaal scherm' : '⛶ Fullscreen';
+    if (isFs) {
+      const req = document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen;
+      if (req) { req.call(document.documentElement).catch(() => {}); }
+    } else if (document.fullscreenElement) {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) { exit.call(document).catch(() => {}); }
+    }
+  }
+  el('fullscreenBtn').addEventListener('click', toggleFullscreen);
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) {
+      document.body.classList.remove('pseudo-fullscreen');
+      el('fullscreenBtn').textContent = '⛶ Fullscreen';
+    }
+  });
+
+  // ---------- Sound toggle ----------
+  el('soundToggleBtn').addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    el('soundToggleBtn').textContent = soundEnabled ? '🔊 Geluid' : '🔇 Geluid uit';
+    if (soundEnabled) {
+      const ctx = getAudioCtx();
+      if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+      playSound('diceReveal');
+    }
+  });
+
+  renderNameInputs();
+})();
+</script>
+</body>
+</html>
